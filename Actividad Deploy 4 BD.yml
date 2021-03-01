@@ -1,0 +1,357 @@
+#Ingrese primero a un Namespace previamente creado antes de ejecutar estos comandos.
+#Bases de datos y sus configuraciones
+---
+#Postgres
+apiVersion: v1
+kind: PersistentVolume #Volumen
+metadata:
+  name: pv-postgres
+spec:
+  storageClassName: storage-postgres
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/postgres"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim #Reclamo
+metadata:
+  name: pvc-postgres
+spec:
+  storageClassName: storage-postgres
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass #clases de almacenamiento
+metadata:
+  name: storage-postgres
+provisioner: kubernetes.io/no-provisioner
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: v1
+kind: ConfigMap #Config Map
+metadata:
+  name: configm-postgres
+data:
+  POSTGRES_DB: db
+  POSTGRES_USER: user
+  POSTGRES_PASSWORD: password
+---
+apiVersion: apps/v1
+kind: Deployment #Deploy
+metadata:
+  name: deploy-postgres
+  labels:
+    app: postgres-server
+spec:
+  selector:
+    matchLabels:
+      app: postgres-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: postgres-server
+    spec:
+      containers:
+      - image: postgres:11
+        name: postgres
+        ports:
+        - containerPort: 5432
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /var/lib/postgresql/data
+          name: postgres-v1
+        envFrom:
+        - configMapRef:
+            name: configm-postgres
+      volumes:
+      - name: postgres-v1
+        persistentVolumeClaim:
+           claimName: pvc-postgres
+---
+apiVersion: v1
+kind: Service #Servicio
+metadata:
+  name: service-postgres
+spec:
+  selector:
+    app: postgres-server
+  ports:
+  - protocol: TCP
+    port: 5300
+    targetPort: 5432
+  type: LoadBalancer
+--- 
+#Redis
+apiVersion: v1
+kind: PersistentVolume #Volumen
+metadata:
+  name: pv-redis
+spec:
+  storageClassName: storage-redis
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/redis"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim #Reclamo
+metadata:
+  name: pvc-redis
+spec:
+  storageClassName: storage-redis
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass #clases de almacenamiento
+metadata:
+  name: storage-redis
+provisioner: kubernetes.io/no-provisioner
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: v1
+kind: ConfigMap #Config Map
+metadata:
+  name: configm-redis
+data:
+  REDIS_PASSWORD: password #contraseña para acceso temporal
+---
+apiVersion: apps/v1
+kind: Deployment #Deploy
+metadata:
+  name: deploy-redis
+  labels:
+    app: redis-server
+spec:
+  selector:
+    matchLabels:
+      app: redis-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: redis-server
+    spec:
+      containers:
+      - image: redis:6
+        name: redis
+        ports:
+        - containerPort: 6379
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /data
+          name: redis-v1
+        envFrom:
+        - configMapRef:
+            name: configm-redis
+      volumes:
+      - name: redis-v1
+        persistentVolumeClaim:
+           claimName: pvc-redis
+---
+apiVersion: v1
+kind: Service #Servicio
+metadata:
+  name: service-redis
+spec:
+  selector:
+    app: redis-server
+  ports:
+  - protocol: TCP
+    port: 5301
+    targetPort: 6379
+  type: LoadBalancer
+---
+#Mongo
+apiVersion: v1
+kind: PersistentVolume #Volumen
+metadata:
+  name: pv-mongo
+spec:
+  storageClassName: storage-mongo
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/mongo"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim #Reclamo
+metadata:
+  name: pvc-mongo
+spec:
+  storageClassName: storage-mongo
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass #clases de almacenamiento
+metadata:
+  name: storage-mongo
+provisioner: kubernetes.io/no-provisioner
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: v1
+kind: ConfigMap #Config Map
+metadata:
+  name: configm-mongo
+data:
+  MONGO_INITDB_DATABASE: db
+  MONGO_INITDB_ROOT_USERNAME: user
+  MONGO_INITDB_ROOT_PASSWORD: password
+---
+apiVersion: apps/v1
+kind: Deployment #Deploy
+metadata:
+  name: deploy-mongo
+  labels:
+    app: mongo-server
+spec:
+  selector:
+    matchLabels:
+      app: mongo-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mongo-server
+    spec:
+      containers:
+      - image: mongo:3
+        name: mongo
+        ports:
+        - containerPort: 27017
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /data/db
+          name: mongo-v1
+        envFrom:
+        - configMapRef:
+            name: configm-mongo
+      volumes:
+      - name: mongo-v1
+        persistentVolumeClaim:
+           claimName: pvc-mongo
+---
+apiVersion: v1
+kind: Service #Servicio
+metadata:
+  name: service-mongo
+spec:
+  selector:
+    app: mongo-server
+  ports:
+  - protocol: TCP
+    port: 5302
+    targetPort: 27017
+  type: LoadBalancer
+---
+  #Mysql
+apiVersion: v1
+kind: PersistentVolume #Volumen
+metadata:
+  name: pv-mysql-v1
+spec:
+  storageClassName: mysql
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/mysql-v1"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim #Reclamo
+metadata:
+  name: pvc-mysql
+spec:
+  storageClassName: mysql
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass #Clase
+metadata:
+  name: mysql
+provisioner: kubernetes.io/no-provisioner
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: v1
+kind: ConfigMap #Configuracion
+metadata:
+  name: map-mysql
+data:
+  MYSQL_ROOT_PASSWORD: root
+  MYSQL_DATABASE: db
+  MYSQL_USER: user
+  MYSQL_PASSWORD: password
+---
+apiVersion: apps/v1
+kind: Deployment #Despliegue
+metadata:
+  name: deploy-mysql
+  labels:
+    app: mysql-server
+spec:
+  selector:
+    matchLabels:
+      app: mysql-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mysql-server
+    spec:
+      containers:
+      - image: mysql:8
+        name: con-mysql
+        ports:
+        - containerPort: 3306
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: mysql-volume1
+        envFrom:
+        - configMapRef:
+            name: map-mysql
+      volumes:
+      - name: mysql-volume1
+        persistentVolumeClaim:
+           claimName: pvc-mysql
+---
+apiVersion: v1
+kind: Service #Servicio
+metadata:
+  name: service-mysql
+spec:
+  selector:
+    app: mysql-server
+  ports:
+  - protocol: TCP
+    port: 5303
+    targetPort: 3306
+  type: LoadBalancer
